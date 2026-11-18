@@ -10,10 +10,7 @@ export const SUIT_NAMES = ['spades', 'hearts', 'clubs', 'diamonds'];
 const RANK_LABELS = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 const RANK_NAMES = ['', 'ace', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'jack', 'queen', 'king'];
 
-export const KNOCK_LIMIT = 10;
 export const GIN_BONUS = 25;
-export const BIG_GIN_BONUS = 31;
-export const UNDERCUT_BONUS = 25;
 export const GAME_BONUS = 100;
 export const BOX_BONUS = 25;
 export const TARGETS = [50, 100, 150];
@@ -111,54 +108,6 @@ export function bestMelds(cards) {
   return best;
 }
 
-/** Can this card be added to the meld (a set's fourth, or either end of a run)? */
-function fits(meld, card) {
-  if (isSet(meld)) return meld.length < 4 && rank(card) === rank(meld[0]);
-  if (suit(card) !== suit(meld[0])) return false;
-  const ranks = meld.map(rank);
-  return rank(card) === Math.min(...ranks) - 1 || rank(card) === Math.max(...ranks) + 1;
-}
-
-/**
- * Lay off as many of these cards as possible onto the knocker's melds.
- * Runs are tried first: a card that could go on a set or a run is better on the run,
- * which may then take another card, while the set could only ever take that one.
- * Returns { melds (extended), laid: [{ card, meld }], left }.
- */
-function layOff(knockerMelds, cards) {
-  const melds = knockerMelds.map((meld) => meld.slice());
-  const laid = [];
-  let left = cards.slice();
-  for (let changed = true; changed;) {
-    changed = false;
-    for (const runsOnly of [true, false]) {
-      for (const card of left) {
-        const k = melds.findIndex((meld) => (runsOnly ? !isSet(meld) : true) && fits(meld, card));
-        if (k < 0) continue;
-        melds[k].push(card);
-        laid.push({ card, meld: k });
-        left = left.filter((c) => c !== card);
-        changed = true;
-        break;
-      }
-      if (changed) break;
-    }
-  }
-  return { melds, laid, left };
-}
-
-/** The defender's best answer to a knock: their own melds plus whatever they can lay off. */
-function bestDefence(cards, knockerMelds) {
-  let best = null;
-  for (const melds of meldChoices(cards)) {
-    const own = arrangement(cards, melds);
-    const off = layOff(knockerMelds, own.deadwood);
-    const option = { melds: own.melds, laid: off.laid, deadwood: off.left, points: points(off.left) };
-    if (!best || option.points < best.points) best = option;
-  }
-  return best;
-}
-
 // ── A match and its hands ────────────────────────────────────────────────────
 /** A new match between player 0 (who starts it) and player 1. */
 export function newMatch(target = 100) {
@@ -249,33 +198,30 @@ export function discardable(match) {
   return hand.hands[hand.turn].filter((card) => card !== hand.took);
 }
 
-/** The deadwood left after throwing this card, which decides whether they can knock. */
+/** The deadwood left after throwing this card: 0 means throwing it is gin. */
 export function deadwoodWithout(cards, card) {
   return bestMelds(cards.filter((c) => c !== card)).points;
 }
 
-/** True when all eleven cards meld, which ends the hand at once with no discard. */
-export function canBigGin(match) {
-  const hand = handOf(match);
-  return hand?.phase === 'discard' && bestMelds(hand.hands[hand.turn]).points === 0;
-}
-
-/** Throw a card onto the pile, knocking with it if asked (and allowed). */
-export function discard(match, card, knock = false) {
+/**
+ * Throw a card onto the pile. If the ten cards left all meld, that's gin and the
+ * hand ends there; nobody has to claim it.
+ */
+export function discard(match, card) {
   const hand = handOf(match);
   if (!discardable(match).includes(card)) return false;
   const who = hand.turn;
   const cards = hand.hands[who];
-  if (knock && deadwoodWithout(cards, card) > KNOCK_LIMIT) return false;
   cards.splice(cards.indexOf(card), 1);
   hand.pile.push(card);
   hand.took = null;
   // Remember what they drew too: a card taken from the pile tells the other player something.
   const drew = hand.last?.who === who && hand.last.act === 'pile' ? hand.last.card : null;
-  hand.last = { who, act: knock ? 'knock' : 'discard', card, drew };
-  if (knock) return finish(match, who, false), true;
+  const gin = bestMelds(cards).points === 0;
+  hand.last = { who, act: gin ? 'gin' : 'discard', card, drew };
+  if (gin) return finish(match, who), true;
   if (hand.stock.length <= 2) {
-    // Only two cards left and nobody knocked: nobody scores.
+    // Only two cards left and nobody has gin: nobody scores.
     hand.phase = 'done';
     hand.result = { kind: 'draw', winner: null, points: 0 };
     match.hands.push({ kind: 'draw', winner: null, points: 0 });
@@ -286,46 +232,23 @@ export function discard(match, card, knock = false) {
   return true;
 }
 
-export function bigGin(match) {
-  if (!canBigGin(match)) return false;
+/** Score a hand someone has ginned: 25 plus the loser's deadwood. */
+function finish(match, winner) {
   const hand = handOf(match);
-  hand.last = { who: hand.turn, act: 'big-gin', card: null };
-  finish(match, hand.turn, true);
-  return true;
-}
-
-/** Score a hand that someone has knocked (or ginned) on. */
-function finish(match, knocker, big) {
-  const hand = handOf(match);
-  const defender = 1 - knocker;
-  const mine = bestMelds(hand.hands[knocker]);
-  const gin = mine.points === 0;
-  const theirs = gin
-    ? { ...bestMelds(hand.hands[defender]), laid: [] }       // no laying off against gin
-    : bestDefence(hand.hands[defender], mine.melds);
-
-  let kind, winner, score;
-  if (big) {
-    kind = 'big-gin'; winner = knocker; score = BIG_GIN_BONUS + theirs.points;
-  } else if (gin) {
-    kind = 'gin'; winner = knocker; score = GIN_BONUS + theirs.points;
-  } else if (theirs.points <= mine.points) {
-    kind = 'undercut'; winner = defender; score = mine.points - theirs.points + UNDERCUT_BONUS;
-  } else {
-    kind = 'knock'; winner = knocker; score = theirs.points - mine.points;
-  }
+  const loser = 1 - winner;
+  const theirs = bestMelds(hand.hands[loser]);
+  const score = GIN_BONUS + theirs.points;
 
   hand.phase = 'done';
   hand.result = {
-    kind, knocker, winner, points: score,
-    melds: { [knocker]: mine, [defender]: theirs },
+    kind: 'gin', winner, points: score,
+    melds: { [winner]: bestMelds(hand.hands[winner]), [loser]: theirs },
   };
   match.scores[winner] += score;
   match.wins[winner]++;
-  match.hands.push({ kind, winner, points: score });
+  match.hands.push({ kind: 'gin', winner, points: score });
 
   if (match.scores[winner] >= match.target) {
-    const loser = 1 - winner;
     const shutout = match.wins[loser] === 0;
     const base = [0, 1].map((p) => match.scores[p] + BOX_BONUS * match.wins[p] + (p === winner ? GAME_BONUS : 0));
     const totals = base.map((total, p) => (p === winner && shutout ? total * 2 : total));

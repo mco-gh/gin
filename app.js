@@ -289,7 +289,7 @@ function onCard(card, clicks) {
     return;
   }
   if (h.phase !== 'discard' || !Gin.discardable(match).includes(card)) return;
-  if (selected === card || clicks >= 2) return act({ act: 'discard', card, knock: false });
+  if (selected === card || clicks >= 2) return act({ act: 'discard', card });
   selected = card;
   render();
 }
@@ -308,17 +308,13 @@ function apply(m, who, action) {
   switch (action.act) {
     case 'take': return (action.from === 'stock' || action.from === 'pile') && Gin.take(m, action.from);
     case 'pass': return Gin.pass(m);
-    case 'discard': return Gin.isCard(action.card) && Gin.discard(m, action.card, Boolean(action.knock));
-    case 'big-gin': return Gin.bigGin(m);
+    case 'discard': return Gin.isCard(action.card) && Gin.discard(m, action.card);
     default: return false;
   }
 }
 
 $('pass').addEventListener('click', () => act({ act: 'pass' }));
-$('throw').addEventListener('click', () => { if (selected !== null) act({ act: 'discard', card: selected, knock: false }); });
-$('knock').addEventListener('click', () => { if (selected !== null) act({ act: 'discard', card: selected, knock: true }); });
-$('gin').addEventListener('click', () => { if (selected !== null) act({ act: 'discard', card: selected, knock: true }); });
-$('big-gin').addEventListener('click', () => act({ act: 'big-gin' }));
+$('throw').addEventListener('click', () => { if (selected !== null) act({ act: 'discard', card: selected }); });
 
 $('next').addEventListener('click', () => {
   if (hand()?.phase !== 'done') return;
@@ -348,8 +344,7 @@ function lastMove() {
     pile: `They took the ${card} from the pile.`,
     stock: 'They drew from the stock.',
     discard: `They threw the ${card}.`,
-    knock: `They knocked with the ${card}.`,
-    'big-gin': 'They went big gin!',
+    gin: `They threw the ${card} and went gin!`,
   }[last.act] ?? '';
 }
 
@@ -377,17 +372,14 @@ function render() {
   // Deadwood, and what the selected card would leave
   let after = null;
   if (selected !== null) after = Gin.deadwoodWithout(h.hands[me], selected);
-  const knockable = canThrow.length && canThrow.some((card) => Gin.deadwoodWithout(h.hands[me], card) <= Gin.KNOCK_LIMIT);
-  const big = myTurn && Gin.canBigGin(match);
+  // Throwing any of these would leave every card in a meld: gin, claimed the moment it's thrown.
+  const ginCards = canThrow.filter((card) => Gin.deadwoodWithout(h.hands[me], card) === 0);
   $('deadwood').textContent = phase === 'done' ? ''
     : after !== null ? `Deadwood after: ${after}` : `Deadwood: ${mine.points}`;
-  $('deadwood').dataset.level = (after ?? mine.points) <= Gin.KNOCK_LIMIT ? 'low' : '';
+  $('deadwood').dataset.level = (after ?? mine.points) === 0 ? 'low' : '';
 
   $('pass').hidden = !(myTurn && phase === 'offer');
   $('throw').hidden = selected === null;
-  $('knock').hidden = !(selected !== null && after > 0 && after <= Gin.KNOCK_LIMIT);
-  $('gin').hidden = !(selected !== null && after === 0);
-  $('big-gin').hidden = !big;
 
   // Status
   let status = '';
@@ -403,12 +395,10 @@ function render() {
     status = h.stockOnly
       ? `${theirs} Draw from the stock.`.trim()
       : `${theirs} Draw from the stock, or take the ${pileTop}.`.trim();
-  } else if (big) {
-    status = 'All eleven cards meld. Big gin!';
   } else if (selected !== null) {
-    status = after === 0 ? 'Throw it and go gin!' : after <= Gin.KNOCK_LIMIT ? 'Throw it, or knock with it.' : 'Tap it again to throw it.';
+    status = after === 0 ? 'Throw it and go gin!' : 'Tap it again to throw it.';
   } else {
-    status = knockable ? 'You can knock! Pick a card to throw.' : 'Pick a card to throw.';
+    status = ginCards.length ? 'You have gin! Throw your spare card.' : 'Pick a card to throw.';
   }
   $('status').textContent = status;
 
@@ -434,10 +424,9 @@ function renderScores() {
   log.replaceChildren(...match.hands.map((line, k) => {
     const item = document.createElement('li');
     const who = line.winner === null ? '' : line.winner === me ? 'You' : 'Them';
-    const what = { knock: 'knock', gin: 'gin', 'big-gin': 'big gin', undercut: 'undercut', draw: 'draw' }[line.kind];
     item.className = line.winner === null ? 'draw' : line.winner === me ? 'me' : 'them';
     item.innerHTML = `<span>Hand ${k + 1}</span><span></span><b></b>`;
-    item.children[1].textContent = line.winner === null ? 'Draw' : `${who}, ${what}`;
+    item.children[1].textContent = line.winner === null ? 'Draw' : `${who}, gin`;
     item.children[2].textContent = line.winner === null ? '–' : `+${line.points}`;
     return item;
   }));
@@ -459,24 +448,18 @@ function renderResult() {
   let sub;
   if (r.kind === 'draw') {
     title = 'It’s a draw';
-    sub = 'The stock ran low and nobody knocked. No points this hand.';
+    sub = 'The stock ran low and nobody went gin. No points this hand.';
   } else {
-    const knockedMe = r.knocker === me;
-    title = {
-      gin: knockedMe ? 'Gin! 🎉' : 'They went gin',
-      'big-gin': knockedMe ? 'Big gin! 🤩' : 'They went big gin',
-      undercut: knockedMe ? 'Undercut! 😬' : 'Undercut! 🎉',
-      knock: knockedMe ? 'You knocked 👊' : 'They knocked',
-    }[r.kind];
-    sub = `${iWon ? 'You score' : 'They score'} ${r.points}.`;
-    if (r.kind === 'undercut') sub = knockedMe ? `They had as little deadwood as you. They score ${r.points}.` : `You had as little deadwood as them. You score ${r.points}.`;
+    title = iWon ? 'Gin! 🎉' : 'They went gin';
+    sub = iWon
+      ? `You score ${r.points}: 25 for gin plus their deadwood.`
+      : `They score ${r.points}: 25 for gin plus your deadwood.`;
   }
 
   const lines = [];
   if (r.melds) {
-    const laid = r.melds[1 - r.knocker].laid?.length ?? 0;
-    lines.push(['Your deadwood', `${r.melds[me].points}${laid && r.knocker !== me ? ` (after laying off ${laid})` : ''}`]);
-    lines.push(['Their deadwood', `${r.melds[them()].points}${laid && r.knocker === me ? ` (after laying off ${laid})` : ''}`]);
+    lines.push(['Your deadwood', String(r.melds[me].points)]);
+    lines.push(['Their deadwood', String(r.melds[them()].points)]);
   }
 
   if (match.winner !== null) {
@@ -511,7 +494,7 @@ function renderResult() {
   celebrated = key;
   const confetti = $('confetti');
   confetti.replaceChildren();
-  if (!(over ? match.winner === me : iWon && (r.kind === 'gin' || r.kind === 'big-gin' || r.kind === 'undercut'))) return;
+  if (!(over ? match.winner === me : iWon && r.kind === 'gin')) return;
   const shades = [colors.backA, colors.backB, '#ffc83d', '#19c3a3', '#3db8ff', '#ffffff'];
   for (let n = 0; n < (over ? 70 : 44); n++) {
     const bit = document.createElement('i');

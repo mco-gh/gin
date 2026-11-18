@@ -262,15 +262,6 @@ a { color: var(--violet); }
 .link-state .dot { inline-size: .6rem; block-size: .6rem; border-radius: 50%; background: var(--ok); }
 .link-state[data-state="off"] .dot { background: var(--warn); }
 
-.btn.sparkle {
-  color: #3a2300;
-  background: linear-gradient(110deg, #ffc83d 20%, #fff3c4 40%, #ffc83d 60%) 0 0 / 250% 100%;
-  box-shadow: 0 8px 22px -8px rgb(255 170 0 / .9);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .btn.sparkle { animation: shine 1.8s linear infinite; }
-  @keyframes shine { to { background-position: -250% 0; } }
-}
 
 /* ── The table ──
    Everything sits on a 1000-unit-wide grid: --x/--y are grid units and --k turns a
@@ -391,11 +382,6 @@ a { color: var(--violet); }
   box-shadow: inset 0 0 0 calc(5 * var(--k)) var(--mc), 0 calc(3 * var(--k)) calc(9 * var(--k)) rgb(0 0 0 / .35);
 }
 .dead .face { background: color-mix(in oklab, var(--paper), #7a7f8c 22%); }
-.laid::after {
-  content: "laid off"; position: absolute; inset-block-start: calc(-14 * var(--k)); inset-inline-start: 50%; translate: -50% 0;
-  padding: calc(2 * var(--k)) calc(9 * var(--k)); border-radius: 999px; background: #fff; color: #2a1f47;
-  font-size: max(.6rem, calc(14 * var(--k))); font-weight: 800; white-space: nowrap; box-shadow: 0 2px 6px rgb(0 0 0 / .3);
-}
 .locked .face { filter: brightness(.9) saturate(.8); }
 .locked::after {
   content: "just taken"; position: absolute; inset-block-start: calc(-16 * var(--k)); inset-inline-start: 0;

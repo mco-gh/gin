@@ -210,16 +210,9 @@ export class Table {
   layoutReveal(place, result, me, them) {
     const m = this.m;
     const rows = { [them]: m.edge, [me]: m.H - m.CH - m.edge };
-    const laidOn = new Map();       // knocker's meld index → cards laid on it
-    for (const { card, meld } of result.melds[1 - result.knocker].laid ?? []) {
-      laidOn.set(meld, [...(laidOn.get(meld) ?? []), card]);
-    }
     for (const who of [me, them]) {
       const arr = result.melds[who];
-      const groups = arr.melds.map((meld, k) => [
-        ...meld.map((card) => ({ card, cls: `meld g${k % 4}` })),
-        ...(who === result.knocker ? (laidOn.get(k) ?? []).map((card) => ({ card, cls: `meld g${k % 4} laid` })) : []),
-      ]);
+      const groups = arr.melds.map((meld, k) => meld.map((card) => ({ card, cls: `meld g${k % 4}` })));
       groups.push(arr.deadwood.map((card) => ({ card, cls: 'dead' })));
       const spots = this.row(groups.filter((g) => g.length), rows[who], m.spread, m.gap, 0);
       for (const spot of spots) {
