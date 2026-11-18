@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <rect width="40" height="40" rx="10" fill="#2a1f5c"/>
+  <g transform="rotate(-14 14 21)">
+    <rect x="6" y="8" width="17" height="24" rx="3" fill="#ee4266" stroke="#fff" stroke-width="1.6"/>
+    <circle cx="14.500" cy="20" r="3.200" fill="#ffd23f"/>
+  </g>
+  <g transform="rotate(10 26 20)">
+    <rect x="17" y="7" width="17" height="24" rx="3" fill="#fffdf8" stroke="#6c4cf1" stroke-width="1.2"/>
+    <path fill="#e8304f" d="M25.500 25c-3.400-2.300-5-4.100-5-6.100a2.500 2.500 0 0 1 5-.9 2.500 2.500 0 0 1 5 .9c0 2-1.600 3.800-5 6.100z"/>
+    <text x="19.300" y="12.800" font-family="Arial, sans-serif" font-weight="900" font-size="5" fill="#e8304f">A</text>
+  </g>
+</svg>
