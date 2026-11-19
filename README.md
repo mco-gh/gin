@@ -4,7 +4,7 @@ Peer-to-peer gin rummy for two, played in the browser at [mco.dev/gin](https://m
 
 It is a static app with no build step: open `index.html` from any web server. The two players connect directly to each other using [PeerJS](https://peerjs.com/) (vendored in `vendor/`).
 
-- `gin.js` is the rules: melds, deadwood, gin and match scoring. There is no knocking: a hand ends when someone discards into gin (claimed automatically) or the stock runs down to two cards.
+- `gin.js` is the rules: melds, deadwood, gin and match scoring. There is no knocking: a hand ends when someone discards into gin, which must be a 4-3-3 (claimed automatically), or the stock runs down to two cards.
 - `table.js` draws the table. Each of the 52 cards is its own element, positioned with CSS variables, so a card's trip from the stock to a hand or the pile is a CSS transition.
 - `app.js` runs the lobby, the turns, chat, video and settings; `net.js` and `ice.js` make the connection.
 

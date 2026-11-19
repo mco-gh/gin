@@ -338,7 +338,11 @@ function lastMove() {
   if (!last || last.who === me) return '';
   const card = last.card === null ? '' : Gin.label(last.card);
   const drew = last.drew === null || last.drew === undefined ? null : Gin.label(last.drew);
-  if (drew && last.act === 'discard') return `They took the ${drew} from the pile and threw the ${card}.`;
+  if (drew && last.act === 'discard') {
+    return last.drew === last.card
+      ? `They took the ${drew} from the pile and threw it back.`
+      : `They took the ${drew} from the pile and threw the ${card}.`;
+  }
   return {
     pass: 'They passed on the upcard.',
     pile: `They took the ${card} from the pile.`,
@@ -373,10 +377,11 @@ function render() {
   let after = null;
   if (selected !== null) after = Gin.deadwoodWithout(h.hands[me], selected);
   // Throwing any of these would leave every card in a meld: gin, claimed the moment it's thrown.
-  const ginCards = canThrow.filter((card) => Gin.deadwoodWithout(h.hands[me], card) === 0);
+  const ginCards = canThrow.filter((card) => Gin.ginWithout(h.hands[me], card));
+  const ginIfThrown = selected !== null && ginCards.includes(selected);
   $('deadwood').textContent = phase === 'done' ? ''
     : after !== null ? `Deadwood after: ${after}` : `Deadwood: ${mine.points}`;
-  $('deadwood').dataset.level = (after ?? mine.points) === 0 ? 'low' : '';
+  $('deadwood').dataset.level = ginIfThrown || (selected === null && ginCards.length) ? 'low' : '';
 
   $('pass').hidden = !(myTurn && phase === 'offer');
   $('throw').hidden = selected === null;
@@ -396,7 +401,9 @@ function render() {
       ? `${theirs} Draw from the stock.`.trim()
       : `${theirs} Draw from the stock, or take the ${pileTop}.`.trim();
   } else if (selected !== null) {
-    status = after === 0 ? 'Throw it and go gin!' : 'Tap it again to throw it.';
+    status = ginIfThrown ? 'Throw it and go gin!'
+      : after === 0 ? 'No deadwood, but gin has to be a 4-3-3. Tap it again to throw it.'
+      : 'Tap it again to throw it.';
   } else {
     status = ginCards.length ? 'You have gin! Throw your spare card.' : 'Pick a card to throw.';
   }

@@ -140,7 +140,7 @@ export class Table {
         place.set(spot.card, {
           ...spot, z: 300 + spot.i, up: true,
           y: spot.y - (mine ? m.lift : 0),
-          cls: `${spot.cls}${mine ? ' sel' : ''}${can ? '' : view.canThrow?.length ? ' locked' : ''}`,
+          cls: `${spot.cls}${mine ? ' sel' : ''}`,
           can, label: `${cardName(spot.card)}${mine ? ', picked up' : ''}`,
         });
       }

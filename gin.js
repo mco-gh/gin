@@ -145,7 +145,6 @@ export function deal(match, deck) {
     phase: 'offer',             // 'offer' → 'draw' → 'discard' → 'draw' … → 'done'
     passes: 0,                  // during the offer: how many have turned down the upcard
     stockOnly: false,           // both passed: the first draw must come from the stock
-    took: null,                 // a card just taken from the pile can't go straight back
     last: null,                 // the latest action, for the status line: { who, act, card }
     result: null,
   };
@@ -170,7 +169,6 @@ export function take(match, from) {
   if (from === 'stock' && !hand.stock.length) return false;
   const card = (from === 'pile' ? hand.pile : hand.stock).pop();
   hand.hands[hand.turn].push(card);
-  hand.took = from === 'pile' ? card : null;
   hand.stockOnly = false;
   hand.phase = 'discard';
   hand.last = { who: hand.turn, act: from, card: from === 'pile' ? card : null };
@@ -191,21 +189,55 @@ export function pass(match) {
   return true;
 }
 
-/** Which cards the player may discard now. */
+/** Which cards the player may discard now: any of them, even one just taken from the pile. */
 export function discardable(match) {
   const hand = handOf(match);
   if (hand?.phase !== 'discard') return [];
-  return hand.hands[hand.turn].filter((card) => card !== hand.took);
+  return hand.hands[hand.turn].slice();
 }
 
-/** The deadwood left after throwing this card: 0 means throwing it is gin. */
+/** The deadwood left after throwing this card. */
 export function deadwoodWithout(cards, card) {
   return bestMelds(cards.filter((c) => c !== card)).points;
 }
 
 /**
- * Throw a card onto the pile. If the ten cards left all meld, that's gin and the
- * hand ends there; nobody has to claim it.
+ * Gin is ten cards in exactly three melds of four, three and three. Other shapes with
+ * no deadwood aren't gin: two runs of five, a set and a run of seven, and so on. So two
+ * runs of one suit that join end to end (really one longer run) don't count as two melds.
+ * Returns the 4-3-3 arrangement, or null.
+ */
+export function ginMelds(cards) {
+  if (cards.length !== 10) return null;
+  const melds = possibleMelds(cards).filter((meld) => meld.length <= 4);
+  const walk = (from, used, chosen) => {
+    if (chosen.length === 3) {
+      const sizes = chosen.map((meld) => meld.length).sort().join('');
+      return sizes === '334' && !chosen.some((a) => chosen.some((b) => joins(a, b))) ? chosen : null;
+    }
+    for (let k = from; k < melds.length; k++) {
+      if (melds[k].some((card) => used.has(card))) continue;
+      const found = walk(k + 1, new Set([...used, ...melds[k]]), [...chosen, melds[k]]);
+      if (found) return found;
+    }
+    return null;
+  };
+  const found = walk(0, new Set(), []);
+  return found && { melds: sortMelds(found), deadwood: [], points: 0 };
+}
+
+/** Do these two runs of one suit make one longer run (a's top card is just below b's bottom)? */
+function joins(a, b) {
+  if (a === b || isSet(a) || isSet(b) || suit(a[0]) !== suit(b[0])) return false;
+  return Math.max(...a.map(rank)) + 1 === Math.min(...b.map(rank));
+}
+
+/** Would throwing this card leave a 4-3-3 gin? */
+export const ginWithout = (cards, card) => Boolean(ginMelds(cards.filter((c) => c !== card)));
+
+/**
+ * Throw a card onto the pile. If the ten cards left make a 4-3-3, that's gin and
+ * the hand ends there; nobody has to claim it.
  */
 export function discard(match, card) {
   const hand = handOf(match);
@@ -214,10 +246,9 @@ export function discard(match, card) {
   const cards = hand.hands[who];
   cards.splice(cards.indexOf(card), 1);
   hand.pile.push(card);
-  hand.took = null;
   // Remember what they drew too: a card taken from the pile tells the other player something.
   const drew = hand.last?.who === who && hand.last.act === 'pile' ? hand.last.card : null;
-  const gin = bestMelds(cards).points === 0;
+  const gin = Boolean(ginMelds(cards));
   hand.last = { who, act: gin ? 'gin' : 'discard', card, drew };
   if (gin) return finish(match, who), true;
   if (hand.stock.length <= 2) {
@@ -242,7 +273,7 @@ function finish(match, winner) {
   hand.phase = 'done';
   hand.result = {
     kind: 'gin', winner, points: score,
-    melds: { [winner]: bestMelds(hand.hands[winner]), [loser]: theirs },
+    melds: { [winner]: ginMelds(hand.hands[winner]), [loser]: theirs },
   };
   match.scores[winner] += score;
   match.wins[winner]++;
