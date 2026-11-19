@@ -14,9 +14,10 @@ const DEAL_STEP = 55;         // ms between cards while dealing
 const wobble = (card, salt) => (((card * 73 + salt * 151) % 97) / 97 - 0.5);
 
 export class Table {
-  constructor(root, onCard = null) {
+  constructor(root, onCard = null, onReorder = null) {
     this.root = root;
     this.onCard = onCard;
+    this.onReorder = onReorder;
     root.classList.add('table-felt');
     root.innerHTML = `
       <div class="spot stock-spot" aria-hidden="true"></div>
@@ -40,16 +41,19 @@ export class Table {
 
     if (onCard) {
       root.addEventListener('click', (event) => {
+        if (this.justDragged) return;
         const el = event.target.closest('.card.can');
         if (el) onCard(Number(el.dataset.card), event.detail);
       });
       root.addEventListener('keydown', (event) => {
+        if (this.moveByKey(event)) return;
         const el = event.target.closest?.('.card.can');
         if (!el || (event.key !== 'Enter' && event.key !== ' ')) return;
         event.preventDefault();
         onCard(Number(el.dataset.card), 1);
       });
     }
+    if (onReorder) this.enableDragging();
     new ResizeObserver(() => this.fit()).observe(root.parentElement);
     this.fit();
   }
@@ -71,6 +75,8 @@ export class Table {
    *   hand        the current hand (from gin.js)
    *   me          which player sits at the bottom
    *   mine        { groups, deadwood } — my cards, already arranged into melds
+   *   order       instead of `mine`: my cards in the order I chose, [{ card, cls }]
+   *   manual      true when I arrange my own cards (drag them, or move them with the arrow keys)
    *   selected    my card picked up to discard, or null
    *   canDraw     { stock, pile } — which piles can be clicked
    *   canThrow    cards I may click in my hand
@@ -126,22 +132,27 @@ export class Table {
     });
 
     const them = 1 - me;
+    this.myRow = [];
+    this.root.classList.toggle('manual', Boolean(view.manual) && !view.result);
     if (view.result && view.result.melds) {
       // The hand is over: both hands face up, in their melds.
       this.layoutReveal(place, view.result, me, them);
     } else {
-      // Mine, along the bottom in a gentle fan, melds grouped together.
-      const groups = [...view.mine.groups.map((g, k) => g.map((card) => ({ card, cls: `meld g${k % 4}` }))),
-        view.mine.deadwood.map((card) => ({ card, cls: '' }))].filter((g) => g.length);
+      // Mine, along the bottom in a gentle fan: melds grouped together, or in my own order.
+      const groups = view.order ? [view.order]
+        : [...view.mine.groups.map((g, k) => g.map((card) => ({ card, cls: `meld g${k % 4}` }))),
+          view.mine.deadwood.map((card) => ({ card, cls: '' }))].filter((g) => g.length);
       const row = this.row(groups, m.H - m.CH - m.edge, m.spread, m.gap, 1);
+      this.myRow = row;
       for (const spot of row) {
         const mine = spot.card === view.selected;
         const can = view.canThrow?.includes(spot.card);
         place.set(spot.card, {
           ...spot, z: 300 + spot.i, up: true,
           y: spot.y - (mine ? m.lift : 0),
-          cls: `${spot.cls}${mine ? ' sel' : ''}`,
-          can, label: `${cardName(spot.card)}${mine ? ', picked up' : ''}`,
+          cls: `${spot.cls} mine${mine ? ' sel' : ''}`,
+          can, focus: view.manual,
+          label: `${cardName(spot.card)}${mine ? ', picked up' : ''}${view.manual ? '. Arrow keys move it.' : ''}`,
         });
       }
 
@@ -247,13 +258,10 @@ export class Table {
         // Keep the face out of the page once it has turned away.
         later(() => this.unpaint(el), wasUp ? 500 : 0);
       }
-      if (spot.can) {
-        el.tabIndex = 0;
-        el.setAttribute('role', 'button');
-      } else {
-        el.removeAttribute('tabindex');
-        el.removeAttribute('role');
-      }
+      if (spot.can || spot.focus) el.tabIndex = 0;
+      else el.removeAttribute('tabindex');
+      if (spot.can) el.setAttribute('role', 'button');
+      else el.removeAttribute('role');
       if (spot.label) el.setAttribute('aria-label', spot.label);
       else if (spot.up) el.setAttribute('aria-label', cardName(card));
       else el.removeAttribute('aria-label');
@@ -267,6 +275,82 @@ export class Table {
         for (const el of this.cards.values()) el.classList.remove('still');
       }));
     }
+  }
+
+  /** The order my hand would be in with `card` moved to position `index`. */
+  reordered(card, index) {
+    const order = this.myRow.map((spot) => spot.card).filter((c) => c !== card);
+    order.splice(Math.max(0, Math.min(index, order.length)), 0, card);
+    return order;
+  }
+
+  /** Manual sorting: drag a card of mine sideways to move it. */
+  enableDragging() {
+    const root = this.root;
+    root.addEventListener('pointerdown', (event) => {
+      const el = event.target.closest('.card.mine');
+      if (!el || !root.classList.contains('manual') || event.button > 0) return;
+      const card = Number(el.dataset.card);
+      const start = this.myRow.find((spot) => spot.card === card);
+      if (start) this.drag = { card, el, start, x0: event.clientX, y0: event.clientY, id: event.pointerId, active: false, index: start.i };
+    });
+    root.addEventListener('pointermove', (event) => {
+      const d = this.drag;
+      if (!d || event.pointerId !== d.id) return;
+      const dx = event.clientX - d.x0;
+      const dy = event.clientY - d.y0;
+      if (!d.active) {
+        if (Math.hypot(dx, dy) < 8) return;     // still a tap, not a drag
+        d.active = true;
+        root.setPointerCapture(event.pointerId);
+      }
+      d.el.classList.add('dragging');           // again, in case the table was redrawn mid-drag
+      const unit = W / root.clientWidth;
+      const x = d.start.x + dx * unit;
+      d.el.style.setProperty('--x', x.toFixed(1));
+      d.el.style.setProperty('--y', (d.start.y + dy * unit).toFixed(1));
+      d.el.style.setProperty('--r', '0deg');
+      // Make room where it would land.
+      const index = this.myRow.filter((spot) => spot.card !== d.card && spot.x < x).length;
+      if (index === d.index) return;
+      d.index = index;
+      const m = this.m;
+      const order = this.reordered(d.card, index).map((card) => ({ card, cls: '' }));
+      for (const spot of this.row([order], m.H - m.CH - m.edge, m.spread, 0, 1)) {
+        if (spot.card === d.card) continue;
+        const other = this.cards.get(spot.card);
+        other.style.setProperty('--x', spot.x.toFixed(1));
+        other.style.setProperty('--y', spot.y.toFixed(1));
+        other.style.setProperty('--r', `${spot.r.toFixed(2)}deg`);
+        other.style.zIndex = String(300 + spot.i);
+      }
+    });
+    const drop = (event) => {
+      const d = this.drag;
+      if (!d || event.pointerId !== d.id) return;
+      this.drag = null;
+      if (!d.active) return;
+      d.el.classList.remove('dragging');
+      this.justDragged = true;                  // the drop isn't a tap on the card
+      setTimeout(() => { this.justDragged = false; }, 0);
+      this.onReorder(this.reordered(d.card, d.index));
+    };
+    root.addEventListener('pointerup', drop);
+    root.addEventListener('pointercancel', drop);
+  }
+
+  /** Manual sorting from the keyboard: arrow keys move the focused card along. */
+  moveByKey(event) {
+    if (!this.root.classList.contains('manual') || !this.onReorder) return false;
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return false;
+    const el = event.target.closest?.('.card.mine');
+    if (!el) return false;
+    event.preventDefault();
+    const card = Number(el.dataset.card);
+    const at = this.myRow.findIndex((spot) => spot.card === card);
+    this.onReorder(this.reordered(card, at + (event.key === 'ArrowLeft' ? -1 : 1)));
+    el.focus();
+    return true;
   }
 
   paint(el, card) {

@@ -81,7 +81,44 @@ let peerHere = false;
 let ready = [false, false];  // both want the next hand (or a new game)
 let celebrated = '';
 
-const table = new Table($('table'), onCard);
+// Sorting my hand: automatically into melds (the default) or by hand. Only this
+// browser knows the order; the other player never sees it.
+let sortMode = 'auto';
+try { if (localStorage.getItem('gin-sort') === 'manual') sortMode = 'manual'; } catch {}
+let myOrder = [];         // manual order of my cards
+let orderHand = null;     // which hand myOrder belongs to
+
+const table = new Table($('table'), onCard, (order) => { myOrder = order; render(); });
+
+for (const input of document.querySelectorAll('input[name="sort"]')) {
+  input.checked = input.value === sortMode;
+  input.addEventListener('change', () => {
+    if (!input.checked) return;
+    // Switching to manual starts from the order on screen, so nothing jumps.
+    if (input.value === 'manual' && hand()) myOrder = autoOrder(hand().hands[me]);
+    sortMode = input.value;
+    try { localStorage.setItem('gin-sort', sortMode); } catch {}
+    render();
+  });
+}
+
+/** My cards as auto-sort shows them: melds first, then deadwood. */
+function autoOrder(cards) {
+  const { groups, deadwood } = Gin.arrange(cards);
+  return [...groups.flat(), ...deadwood];
+}
+
+/** My cards in my own order: cards that left are dropped, new ones join at the right. */
+function manualOrder(h) {
+  const cards = h.hands[me];
+  if (orderHand !== h.number) {
+    orderHand = h.number;
+    myOrder = autoOrder(cards);           // each new hand starts sorted
+  }
+  myOrder = myOrder.filter((card) => cards.includes(card));
+  for (const card of cards) if (!myOrder.includes(card)) myOrder.push(card);
+  return myOrder;
+}
 
 // The lobby's sample hand: two melds and a little deadwood.
 const S = (r, s) => s * 13 + r - 1;
@@ -365,7 +402,17 @@ function render() {
     pile: myTurn && (phase === 'offer' || (phase === 'draw' && !h.stockOnly)),
   };
 
-  table.show({ hand: h, me, mine, selected, canDraw, canThrow, result: phase === 'done' ? h.result : null });
+  let order = null;
+  if (sortMode === 'manual') {
+    // Keep the meld colors, so you can still see what melds you have.
+    const color = new Map(mine.groups.flatMap((g, k) => g.map((card) => [card, `meld g${k % 4}`])));
+    order = manualOrder(h).map((card) => ({ card, cls: color.get(card) ?? '' }));
+  }
+  table.show({
+    hand: h, me, mine, order, manual: sortMode === 'manual', selected, canDraw, canThrow,
+    result: phase === 'done' ? h.result : null,
+  });
+  $('sort-pick').hidden = phase === 'done';
 
   // Seats
   $('seat-me').classList.toggle('turn', myTurn);

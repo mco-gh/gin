@@ -263,6 +263,15 @@ a { color: var(--violet); }
 .link-state[data-state="off"] .dot { background: var(--warn); }
 
 
+/* Auto or manual sorting, a small two-way switch. */
+.sort-pick { display: inline-flex; align-items: center; gap: 0; padding: 2px; border-radius: 999px; background: var(--surface-2); font-size: .8rem; font-weight: 800; }
+.sort-pick > span { padding-inline: .55rem .35rem; color: var(--ink-soft); }
+.sort-pick label { position: relative; cursor: pointer; }
+.sort-pick input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.sort-pick label span { display: block; padding: .2rem .65rem; border-radius: 999px; transition: background-color .15s, color .15s; }
+.sort-pick input:checked + span { background: var(--violet); color: light-dark(#fff, #17122b); }
+.sort-pick input:focus-visible + span { outline: 3px solid var(--violet); outline-offset: 2px; }
+
 /* ── The table ──
    Everything sits on a 1000-unit-wide grid: --x/--y are grid units and --k turns a
    unit into a length that tracks the table's width. table.js sets --h (the height in
@@ -384,6 +393,12 @@ a { color: var(--violet); }
 .dead .face { background: color-mix(in oklab, var(--paper), #7a7f8c 22%); }
 
 .card.can { cursor: pointer; }
+/* Manual sorting: my cards can be dragged along the row. */
+.manual .card.mine { touch-action: none; cursor: grab; }
+.manual .card.mine:focus-visible { outline: none; }
+.manual .card.mine:focus-visible .face { outline: calc(5 * var(--k)) solid var(--sun); outline-offset: calc(2 * var(--k)); }
+.card.dragging { z-index: 999 !important; cursor: grabbing; transition: rotate .2s !important; scale: 1.06; }
+.card.dragging .face { box-shadow: 0 calc(16 * var(--k)) calc(30 * var(--k)) rgb(0 0 0 / .5); }
 .card.can:focus-visible { outline: none; }
 .card.can:focus-visible .face, .card.can:focus-visible .back { outline: calc(5 * var(--k)) solid var(--sun); outline-offset: calc(2 * var(--k)); }
 @media (hover: hover) {

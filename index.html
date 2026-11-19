@@ -125,6 +125,12 @@
         <span class="seat-name">You</span>
         <span class="score-pill" id="score-me"></span>
         <span class="deadwood" id="deadwood"></span>
+        <fieldset class="sort-pick" id="sort-pick">
+          <legend class="visually-hidden">Sort your hand</legend>
+          <span aria-hidden="true">Sort</span>
+          <label><input type="radio" name="sort" value="auto" checked><span>Auto</span></label>
+          <label><input type="radio" name="sort" value="manual"><span>Manual</span></label>
+        </fieldset>
         <p class="status" id="status" role="status"></p>
         <div class="actions">
           <button class="btn ghost" type="button" id="pass" hidden>Pass</button>
@@ -217,7 +223,8 @@
 
     <h3>Playing a hand</h3>
     <ul>
-      <li>Make <strong>melds</strong>: sets of three or four cards of the same rank, or runs of three or more in a row in one suit. Aces are low. Your hand sorts itself, with each meld in its own color.</li>
+      <li>Make <strong>melds</strong>: sets of three or four cards of the same rank, or runs of three or more in a row in one suit. Aces are low. Each meld in your hand is shown in its own color.</li>
+      <li>Your hand sorts itself into melds (<strong>Sort: Auto</strong>, the default). Choose <strong>Manual</strong> to arrange it yourself: drag a card sideways, or tab to it and use the arrow keys. New cards join at the right. Your choice is saved in this browser.</li>
       <li>Cards that aren’t in a meld are <strong>deadwood</strong>: aces count 1, picture cards 10, the rest their number.</li>
       <li>On your turn, take the top card of the stock or the discard pile, then tap a card to pick it up and tap it again (or choose <strong>Discard</strong>) to throw it away. You can even throw back a card you just took from the pile.</li>
       <li>To start a hand, the player who didn’t deal may take the upcard or pass; then the dealer may. If both pass, the first player draws from the stock.</li>
