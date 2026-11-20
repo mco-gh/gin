@@ -783,7 +783,7 @@ if (location.hash.length > 1) {
   join(location.hash);
 }
 
-// ── Appearance: System, Light or Dark, saved in this browser. The choice is written
+// ── Appearance: Light (the default), Dark or System, saved in this browser. The choice is written
 // to <meta name="color-scheme">, which the stylesheet follows. ──
 {
   const schemeMeta = document.querySelector('meta[name="color-scheme"]');
@@ -792,8 +792,8 @@ if (location.hash.length > 1) {
     input.addEventListener('change', () => {
       schemeMeta.content = input.value;
       try {
-        if (input.value === 'light dark') localStorage.removeItem('gin-scheme');
-        else localStorage.setItem('gin-scheme', input.value);
+        // Saved even when it's System: with nothing saved, the app starts in Light.
+        localStorage.setItem('gin-scheme', input.value);
       } catch { /* the choice still applies for this visit */ }
     });
   }
