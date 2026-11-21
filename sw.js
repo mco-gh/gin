@@ -6,6 +6,7 @@ const CACHE = "gin-v1";
 const PRECACHE = [
   "./",
   "./app.js",
+  "./bot.js",
   "./table.js",
   "./gin.js",
   "./icon.svg",

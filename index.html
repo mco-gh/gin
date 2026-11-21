@@ -64,6 +64,15 @@
           <button class="btn primary big" type="submit">
             <span aria-hidden="true">🃏</span> Start a game
           </button>
+          <p class="or"><span>or play the computer</span></p>
+          <div class="vs-bot">
+            <div class="segmented" role="radiogroup" aria-label="How good the computer is">
+              <label><input type="radio" name="bot" value="easy"><span>Easy</span></label>
+              <label><input type="radio" name="bot" value="medium" checked><span>Medium</span></label>
+              <label><input type="radio" name="bot" value="hard"><span>Hard</span></label>
+            </div>
+            <button class="btn big" type="submit" name="vs" value="bot"><span aria-hidden="true">🤖</span> Play the computer</button>
+          </div>
         </form>
 
         <p class="or"><span>or join one</span></p>
@@ -104,7 +113,7 @@
     <section class="play" aria-label="Card table">
       <div class="seat" id="seat-them">
         <span class="avatar them" aria-hidden="true">🦊</span>
-        <span class="seat-name">Opponent</span>
+        <span class="seat-name" id="them-name">Opponent</span>
         <span class="score-pill" id="score-them"></span>
         <span class="link-state" id="link-state" data-state="on"><span class="dot" aria-hidden="true"></span><span id="link-text">Connected</span></span>
       </div>
@@ -226,6 +235,7 @@
       <li>Send the code (or the link) to your friend.</li>
       <li>When they join, the cards are dealt: ten each, with one turned up to start the discard pile.</li>
     </ol>
+    <p>No one to play? Pick Easy, Medium or Hard and choose <strong>Play the computer</strong>. It plays right here in your browser.</p>
 
     <h3>Playing a hand</h3>
     <ul>

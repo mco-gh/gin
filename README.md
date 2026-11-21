@@ -8,6 +8,7 @@ It is a static app with no build step: open `index.html` from any web server. Th
 - `table.js` draws the table. Each of the 52 cards is its own element, positioned with CSS variables, so a card's trip from the stock to a hand or the pile is a CSS transition.
 - Each player chooses whether their hand sorts itself into melds (the default) or stays in the order they drag it into; that choice and the order stay in their own browser.
 - `app.js` runs the lobby, the turns, chat, video and settings; `net.js` and `ice.js` make the connection.
+- `bot.js` is the computer opponent (Easy, Medium or Hard). It stands in for the link and keeps its own copy of the match, as a guest would, looking only at its own cards, the pile and what you pick up.
 
 Both browsers keep an identical copy of the match. The host shuffles (with `crypto.getRandomValues`) and sends each new hand; every action is sent to the other browser, which checks it against its own copy before applying it, and asks for a fresh copy if they ever disagree. The page only ever shows you your own cards, but because both browsers hold the deck it is a game for friends, not strangers.
 

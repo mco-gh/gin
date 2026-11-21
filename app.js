@@ -7,6 +7,7 @@
 import * as Gin from './gin.js';
 import { Table, fan } from './table.js';
 import { openLink, newCode, cleanCode } from './net.js';
+import { openBot, LEVELS as BOT_LEVELS } from './bot.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -70,7 +71,8 @@ $('four-color').addEventListener('change', () => applySuits(true));
 applySuits();
 
 // ── State ────────────────────────────────────────────────────────────────────
-let link = null;          // the connection, or null
+let link = null;          // the connection (or the computer), or null
+let vsBot = null;         // the computer's level when playing it, else null
 let host = false;
 let code = '';
 let target = 100;         // what the host chose in the lobby
@@ -159,6 +161,8 @@ function setLobby(state, error = '') {
 function show(screen) {
   $('lobby').hidden = screen !== 'lobby';
   $('game').hidden = screen !== 'game';
+  document.body.dataset.vs = vsBot ? 'bot' : 'friend';
+  $('them-name').textContent = vsBot ? 'Computer' : 'Opponent';
 }
 
 const inviteLink = () => `${location.origin}${location.pathname}#${code}`;
@@ -177,9 +181,10 @@ function connect() {
   if (!match) setLobby(host ? 'opening' : 'joining');
   // Ignore callbacks from a connection we have already replaced or dropped.
   const guard = (fn) => (...args) => { if (link === mine) fn(...args); };
-  const mine = openLink({
+  const mine = (vsBot ? openBot : openLink)({
     code,
     host,
+    level: vsBot,
     on: {
       waiting: guard(() => { if (!match) setLobby('waiting'); }),
       open: guard(onPeer),
@@ -252,15 +257,25 @@ $('start-form').addEventListener('submit', (event) => {
   event.preventDefault();
   host = true;
   me = 0;
-  target = Number(new FormData(event.target).get('target')) || 100;
-  code = newCode();
+  const form = new FormData(event.target);
+  target = Number(form.get('target')) || 100;
+  vsBot = event.submitter?.value === 'bot' ? (BOT_LEVELS[form.get('bot')] ? form.get('bot') : 'medium') : null;
+  if (vsBot) try { localStorage.setItem('gin-bot', vsBot); } catch {}
+  code = vsBot ? 'computer' : newCode();
   connect();
 });
+
+try {
+  const saved = localStorage.getItem('gin-bot');
+  const input = document.querySelector(`input[name="bot"][value="${saved}"]`);
+  if (input) input.checked = true;
+} catch {}
 
 function join(text) {
   const wanted = cleanCode(text);
   if (wanted.length !== 7) return setLobby('idle', 'A game code looks like abc-def.');
   host = false;
+  vsBot = null;
   me = 1;
   code = wanted;
   history.replaceState(null, '', `#${code}`);
@@ -462,7 +477,7 @@ function render() {
   // Link
   const linkState = $('link-state');
   linkState.dataset.state = peerHere ? 'on' : 'off';
-  $('link-text').textContent = peerHere ? 'Connected' : host ? `Away. They can rejoin with ${code}` : 'Disconnected';
+  $('link-text').textContent = vsBot ? `🤖 ${BOT_LEVELS[vsBot].name}` : peerHere ? 'Connected' : host ? `Away. They can rejoin with ${code}` : 'Disconnected';
 
   renderScores();
   renderResult();
