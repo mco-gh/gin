@@ -25,6 +25,7 @@ export function openBot({ level, on, seat = 1 }) {
   let closed = false;
 
   const reply = (message) => { if (!closed) on.message?.(message); };
+  const aces = () => Gin.acesRule(match?.aces);
 
   /** Note what the other player just did. */
   function watch() {
@@ -70,20 +71,20 @@ export function openBot({ level, on, seat = 1 }) {
   /** Take the pile's top card? Only if it goes straight into a meld. */
   function wantsPile(cards, card) {
     if (card === undefined) return false;
-    const now = Gin.bestMelds(cards);
+    const now = Gin.bestMelds(cards, aces());
     const withIt = [...cards, card];
-    const best = Gin.bestMelds(withIt);
+    const best = Gin.bestMelds(withIt, aces());
     if (!best.melds.flat().includes(card)) return false;
     if (skill.pile === 'melds') return true;
     // It must leave us better off once we've thrown something else.
     const throwAway = chooseDiscard(withIt, card);
-    return Gin.deadwoodWithout(withIt, throwAway) < now.points;
+    return Gin.deadwoodWithout(withIt, throwAway, aces()) < now.points;
   }
 
   /** Which card to throw: the one we'll miss least. Never `keep`. */
   function chooseDiscard(cards, keep = null) {
     const options = cards.filter((card) => card !== keep);
-    const gin = options.find((card) => Gin.ginWithout(cards, card));
+    const gin = options.find((card) => Gin.ginWithout(cards, card, aces()));
     if (gin !== undefined) return gin;
     const scored = options.map((card) => ({ card, cost: cost(cards, card) })).sort((a, b) => a.cost - b.cost);
     if (skill.slip && scored.length > 2 && Math.random() < skill.slip) return scored[1 + Math.floor(Math.random() * 2)].card;
@@ -93,7 +94,7 @@ export function openBot({ level, on, seat = 1 }) {
   /** How bad it would be to throw `card`: what the hand it leaves is worth. */
   function cost(cards, card) {
     const rest = cards.filter((c) => c !== card);
-    const { melds, deadwood, points } = Gin.bestMelds(rest);
+    const { melds, deadwood, points } = Gin.bestMelds(rest, aces());
     let total = points;
     if (skill.potential) {
       // Unmelded cards that could still become melds are worth keeping.
@@ -113,21 +114,26 @@ export function openBot({ level, on, seat = 1 }) {
     // Same rank: a pair needs one more; a meld's rank can take a fourth.
     const sameRank = [0, 1, 2, 3].map((st) => at(r, st)).filter((c) => c !== card);
     if (sameRank.some(have)) ways += sameRank.filter((c) => !have(c) && out(c)).length / 2;
-    // Same suit: neighbors that would make or extend a run.
+    // Same suit: neighbors that would make or extend a run (going round the ace if the rule allows).
+    const step = (from, by) => {
+      let x = from;
+      for (let k = 0; k < Math.abs(by) && x !== null; k++) x = by > 0 ? Gin.nextRank(x, aces()) : Gin.prevRank(x, aces());
+      return x;
+    };
+    const inSuit = (x) => (x === null ? null : s * 13 + x - 1);
     for (const d of [-2, -1, 1, 2]) {
-      const next = at(r + d, s);
-      if (next === null || !have(next)) continue;
-      const lo = Math.min(r, r + d);
-      const hi = Math.max(r, r + d);
-      const gap = hi - lo === 2 ? [at(lo + 1, s)] : [at(lo - 1, s), at(hi + 1, s)];
-      ways += gap.filter((c) => c !== null && !have(c) && out(c)).length / 2;
+      const other = step(r, d);
+      if (other === null || !have(inSuit(other))) continue;
+      const lo = d > 0 ? r : other;
+      const hi = d > 0 ? other : r;
+      const gap = Math.abs(d) === 2 ? [step(lo, 1)] : [step(lo, -1), step(hi, 1)];
+      ways += gap.map(inSuit).filter((c) => c !== null && !have(c) && out(c)).length / 2;
     }
-    // A card that extends a meld we already have.
+    // A card one gap away from a run we already have.
     for (const meld of melds) {
-      const runSuit = Gin.suit(meld[0]) === Gin.suit(meld[1]) && Gin.rank(meld[0]) !== Gin.rank(meld[1]);
-      if (runSuit && Gin.suit(card) === Gin.suit(meld[0])) {
-        const ranks = meld.map(Gin.rank);
-        if (r === Math.min(...ranks) - 2 || r === Math.max(...ranks) + 2) ways += 0.5;
+      if (!Gin.isRun(meld, aces()) || Gin.suit(card) !== Gin.suit(meld[0])) continue;
+      for (const between of [step(r, 1), step(r, -1)].map(inSuit)) {
+        if (between !== null && !have(between) && Gin.isRun([...meld, between, card], aces())) { ways += 0.5; break; }
       }
     }
     return ways;

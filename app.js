@@ -104,9 +104,21 @@ for (const input of document.querySelectorAll('input[name="sort"]')) {
   });
 }
 
+// Where aces go in runs. The host's choice is stored in the match, so both browsers use it.
+let acesPick = 'low';
+try { acesPick = Gin.acesRule(localStorage.getItem('gin-aces')); } catch {}
+for (const input of document.querySelectorAll('input[name="aces"]')) {
+  input.checked = input.value === acesPick;
+  input.addEventListener('change', () => {
+    acesPick = Gin.acesRule(input.value);
+    try { localStorage.setItem('gin-aces', acesPick); } catch {}
+  });
+}
+const aces = () => Gin.acesRule(match?.aces);
+
 /** My cards as auto-sort shows them: melds first, then deadwood. */
 function autoOrder(cards) {
-  const { groups, deadwood } = Gin.arrange(cards);
+  const { groups, deadwood } = Gin.arrange(cards, aces());
   return [...groups.flat(), ...deadwood];
 }
 
@@ -311,7 +323,7 @@ const send = (message) => link?.send(message);
 const sendSync = () => send({ t: 'sync', match, ready });
 
 function startMatch() {
-  match = Gin.newMatch(Gin.TARGETS.includes(target) ? target : 100);
+  match = Gin.newMatch(Gin.TARGETS.includes(target) ? target : 100, acesPick);
   dealNext();
 }
 
@@ -409,7 +421,7 @@ function render() {
   if (!match || !h) return;
   const myTurn = Gin.canAct(match, me);
   const { phase } = h;
-  const mine = Gin.arrange(h.hands[me]);
+  const mine = Gin.arrange(h.hands[me], aces());
   const canThrow = myTurn && phase === 'discard' ? Gin.discardable(match) : [];
   if (!canThrow.includes(selected)) selected = null;
   const canDraw = {
@@ -437,9 +449,9 @@ function render() {
 
   // Deadwood, and what the selected card would leave
   let after = null;
-  if (selected !== null) after = Gin.deadwoodWithout(h.hands[me], selected);
+  if (selected !== null) after = Gin.deadwoodWithout(h.hands[me], selected, aces());
   // Throwing any of these would leave every card in a meld: gin, claimed the moment it's thrown.
-  const ginCards = canThrow.filter((card) => Gin.ginWithout(h.hands[me], card));
+  const ginCards = canThrow.filter((card) => Gin.ginWithout(h.hands[me], card, aces()));
   const ginIfThrown = selected !== null && ginCards.includes(selected);
   $('deadwood').textContent = phase === 'done' ? ''
     : after !== null ? `Deadwood after: ${after}` : `Deadwood: ${mine.points}`;
@@ -484,7 +496,8 @@ function render() {
 }
 
 function renderScores() {
-  $('target-note').textContent = `· first to ${match.target}`;
+  const acesNote = { low: '', high: ' · aces high', both: ' · aces high or low' }[aces()];
+  $('target-note').textContent = `· first to ${match.target}${acesNote}`;
   for (const [who, key] of [[me, 'me'], [them(), 'them']]) {
     $(`total-${key}`).textContent = match.scores[who];
     $(`bar-${key}`).style.inlineSize = `${Math.min(100, (match.scores[who] / match.target) * 100)}%`;

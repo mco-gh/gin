@@ -203,6 +203,12 @@
       <div class="segmented"><label><input type="radio" name="scheme" value="light dark"><span>System</span></label><label><input type="radio" name="scheme" value="light"><span>Light</span></label><label><input type="radio" name="scheme" value="dark"><span>Dark</span></label></div>
     </fieldset>
 
+    <fieldset class="aces-pick">
+      <legend>Aces in runs</legend>
+      <div class="segmented"><label><input type="radio" name="aces" value="low" checked><span>Low</span></label><label><input type="radio" name="aces" value="high"><span>High</span></label><label><input type="radio" name="aces" value="both"><span>Both</span></label></div>
+      <p class="help">Low: A-2-3. High: Q-K-A. Both: either, and a run can turn the corner, as in K-A-2. An ace always counts 1 point. Whoever starts a game sets this for both players, from the next game they start.</p>
+    </fieldset>
+
     <fieldset class="themes">
       <legend>Themes</legend>
       <div class="theme-list" id="theme-list"></div>
@@ -239,7 +245,7 @@
 
     <h3>Playing a hand</h3>
     <ul>
-      <li>Make <strong>melds</strong>: sets of three or four cards of the same rank, or runs of three or more in a row in one suit. Aces are low. Each meld in your hand is shown in its own color.</li>
+      <li>Make <strong>melds</strong>: sets of three or four cards of the same rank, or runs of three or more in a row in one suit. Aces are low, unless whoever started the game chose high (Q-K-A) or both (which also allows runs like K-A-2) in Settings. Each meld in your hand is shown in its own color.</li>
       <li>Your hand sorts itself into melds (<strong>Sort: Auto</strong>, the default). Choose <strong>Manual</strong> to arrange it yourself: drag a card sideways, or tab to it and use the arrow keys. New cards join at the right. Your choice is saved in this browser.</li>
       <li>Cards that aren’t in a meld are <strong>deadwood</strong>: aces count 1, picture cards 10, the rest their number.</li>
       <li>On your turn, take the top card of the stock or the discard pile, then tap a card to pick it up and tap it again (or choose <strong>Discard</strong>) to throw it away. You can even throw back a card you just took from the pile.</li>
