@@ -18,7 +18,7 @@ export const TARGETS = [50, 100, 150];
 // Where aces go in a run. Low: A-2-3 only. High: Q-K-A only. Both: either, and a
 // run can turn the corner through the ace, as in K-A-2. An ace always counts 1 point.
 export const ACES = ['low', 'high', 'both'];
-export const acesRule = (aces) => (ACES.includes(aces) ? aces : 'low');
+export const acesRule = (aces) => (ACES.includes(aces) ? aces : 'both');
 
 export const rank = (card) => (card % 13) + 1;
 export const suit = (card) => Math.floor(card / 13);
@@ -153,7 +153,7 @@ export function bestMelds(cards, aces = 'low') {
 
 // ── A match and its hands ────────────────────────────────────────────────────
 /** A new match between player 0 (who starts it) and player 1. */
-export function newMatch(target = 100, aces = 'low') {
+export function newMatch(target = 100, aces = 'both') {
   return {
     target,
     aces: acesRule(aces),
@@ -170,7 +170,7 @@ export function newMatch(target = 100, aces = 'low') {
 /**
  * Deal a hand from this deck: ten cards each, one at a time, starting with the
  * non-dealer; the next card turns up to start the discard pile; the rest is the stock.
- * The stock is drawn from its end.
+ * The stock is drawn from its end. The non-dealer then draws first, from either pile.
  */
 export function deal(match, deck) {
   const dealer = 1 - match.dealer;
@@ -186,9 +186,7 @@ export function deal(match, deck) {
     pile: [upcard],
     stock: cards.reverse(),     // the next card to draw is at the end
     turn: first,
-    phase: 'offer',             // 'offer' → 'draw' → 'discard' → 'draw' … → 'done'
-    passes: 0,                  // during the offer: how many have turned down the upcard
-    stockOnly: false,           // both passed: the first draw must come from the stock
+    phase: 'draw',              // 'draw' → 'discard' → 'draw' … → 'done'
     last: null,                 // the latest action, for the status line: { who, act, card }
     result: null,
   };
@@ -206,30 +204,13 @@ export function canAct(match, who) {
 /** Pick up the top of the stock or the pile. */
 export function take(match, from) {
   const hand = handOf(match);
-  const { phase } = hand;
-  if (from === 'pile' && !(phase === 'offer' || (phase === 'draw' && !hand.stockOnly))) return false;
-  if (from === 'stock' && phase !== 'draw') return false;
+  if (hand.phase !== 'draw') return false;
   if (from === 'pile' && !hand.pile.length) return false;
   if (from === 'stock' && !hand.stock.length) return false;
   const card = (from === 'pile' ? hand.pile : hand.stock).pop();
   hand.hands[hand.turn].push(card);
-  hand.stockOnly = false;
   hand.phase = 'discard';
   hand.last = { who: hand.turn, act: from, card: from === 'pile' ? card : null };
-  return true;
-}
-
-/** Turn down the upcard at the start of a hand. */
-export function pass(match) {
-  const hand = handOf(match);
-  if (hand.phase !== 'offer') return false;
-  hand.passes++;
-  hand.last = { who: hand.turn, act: 'pass', card: null };
-  hand.turn = 1 - hand.turn;
-  if (hand.passes === 2) {
-    hand.phase = 'draw';
-    hand.stockOnly = true;
-  }
   return true;
 }
 

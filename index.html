@@ -61,6 +61,11 @@
             <label class="pick-chip"><input type="radio" name="target" value="100" checked><span class="target-face">100<small>classic</small></span></label>
             <label class="pick-chip"><input type="radio" name="target" value="150"><span class="target-face">150<small>long</small></span></label>
           </fieldset>
+          <fieldset class="aces-pick">
+            <legend>Aces in runs</legend>
+            <div class="segmented"><label><input type="radio" name="aces" value="low"><span>Low</span></label><label><input type="radio" name="aces" value="high"><span>High</span></label><label><input type="radio" name="aces" value="both" checked><span>Both</span></label></div>
+            <p class="help">Low: A-2-3. High: Q-K-A. Both: either, and runs that turn the corner, like K-A-2. An ace always counts 1. This applies to the whole game, for both players.</p>
+          </fieldset>
           <button class="btn primary big" type="submit">
             <span aria-hidden="true">🃏</span> Start a game
           </button>
@@ -143,7 +148,6 @@
         </fieldset>
         <p class="status" id="status" role="status"></p>
         <div class="actions">
-          <button class="btn ghost" type="button" id="pass" hidden>Pass</button>
           <button class="btn" type="button" id="throw" hidden>Discard</button>
         </div>
       </div>
@@ -203,12 +207,6 @@
       <div class="segmented"><label><input type="radio" name="scheme" value="light dark"><span>System</span></label><label><input type="radio" name="scheme" value="light"><span>Light</span></label><label><input type="radio" name="scheme" value="dark"><span>Dark</span></label></div>
     </fieldset>
 
-    <fieldset class="aces-pick">
-      <legend>Aces in runs</legend>
-      <div class="segmented"><label><input type="radio" name="aces" value="low" checked><span>Low</span></label><label><input type="radio" name="aces" value="high"><span>High</span></label><label><input type="radio" name="aces" value="both"><span>Both</span></label></div>
-      <p class="help">Low: A-2-3. High: Q-K-A. Both: either, and a run can turn the corner, as in K-A-2. An ace always counts 1 point. Whoever starts a game sets this for both players, from the next game they start.</p>
-    </fieldset>
-
     <fieldset class="themes">
       <legend>Themes</legend>
       <div class="theme-list" id="theme-list"></div>
@@ -245,11 +243,11 @@
 
     <h3>Playing a hand</h3>
     <ul>
-      <li>Make <strong>melds</strong>: sets of three or four cards of the same rank, or runs of three or more in a row in one suit. Aces are low, unless whoever started the game chose high (Q-K-A) or both (which also allows runs like K-A-2) in Settings. Each meld in your hand is shown in its own color.</li>
+      <li>Make <strong>melds</strong>: sets of three or four cards of the same rank, or runs of three or more in a row in one suit. Whoever starts a game chooses where aces go in runs: low (A-2-3), high (Q-K-A) or both, the default, which also allows runs that turn the corner, like K-A-2. The game’s choice is shown next to the score. Each meld in your hand is shown in its own color.</li>
       <li>Your hand sorts itself into melds (<strong>Sort: Auto</strong>, the default). Choose <strong>Manual</strong> to arrange it yourself: drag a card sideways, or tab to it and use the arrow keys. New cards join at the right. Your choice is saved in this browser.</li>
       <li>Cards that aren’t in a meld are <strong>deadwood</strong>: aces count 1, picture cards 10, the rest their number.</li>
       <li>On your turn, take the top card of the stock or the discard pile, then tap a card to pick it up and tap it again (or choose <strong>Discard</strong>) to throw it away. You can even throw back a card you just took from the pile.</li>
-      <li>To start a hand, the player who didn’t deal may take the upcard or pass; then the dealer may. If both pass, the first player draws from the stock.</li>
+      <li>Each hand, the player who didn’t deal goes first, drawing from the stock or the discard pile like any other turn.</li>
       <li>The goal is <strong>gin</strong>: after you discard, your ten cards make exactly three melds of four, three and three (a 4-3-3). Other shapes with no deadwood, like two runs of five or a set of three and a run of seven, aren’t gin. There’s no knocking, and nothing to claim: throw your spare card and the hand ends with gin.</li>
       <li>If the stock gets down to two cards and nobody has gone gin, the hand is a draw.</li>
     </ul>

@@ -104,14 +104,15 @@ for (const input of document.querySelectorAll('input[name="sort"]')) {
   });
 }
 
-// Where aces go in runs. The host's choice is stored in the match, so both browsers use it.
-let acesPick = 'low';
-try { acesPick = Gin.acesRule(localStorage.getItem('gin-aces')); } catch {}
+// Where aces go in runs: chosen when starting a game (Both by default) and stored in
+// the match, so both browsers, and the computer, play by the starter's choice.
+let acesPick = 'both';
+try { acesPick = Gin.acesRule(localStorage.getItem('gin-aces-start') ?? 'both'); } catch {}
 for (const input of document.querySelectorAll('input[name="aces"]')) {
   input.checked = input.value === acesPick;
   input.addEventListener('change', () => {
     acesPick = Gin.acesRule(input.value);
-    try { localStorage.setItem('gin-aces', acesPick); } catch {}
+    try { localStorage.setItem('gin-aces-start', acesPick); } catch {}
   });
 }
 const aces = () => Gin.acesRule(match?.aces);
@@ -344,16 +345,26 @@ function begin() {
 const them = () => 1 - me;
 const hand = () => match?.hand;
 
-function onCard(card, clicks) {
+// When I last drew. A double-click on a pile is two clicks, and the second would land on
+// the card that just arrived in my hand, so ignore clicks on my hand for a moment.
+let drewAt = 0;
+const SETTLE_MS = 450;
+
+function onCard(card) {
   const h = hand();
   if (!h || !Gin.canAct(match, me)) return;
-  if (h.phase === 'offer' || h.phase === 'draw') {
+  if (h.phase === 'draw') {
     const from = card === h.stock.at(-1) ? 'stock' : card === h.pile.at(-1) ? 'pile' : null;
-    if (from) act({ act: 'take', from });
+    if (from) {
+      drewAt = performance.now();
+      act({ act: 'take', from });
+    }
     return;
   }
   if (h.phase !== 'discard' || !Gin.discardable(match).includes(card)) return;
-  if (selected === card || clicks >= 2) return act({ act: 'discard', card });
+  if (performance.now() - drewAt < SETTLE_MS) return;
+  // Discarding always takes two separate taps (pick up, then throw), never a double-click.
+  if (selected === card) return act({ act: 'discard', card });
   selected = card;
   render();
 }
@@ -371,13 +382,11 @@ function apply(m, who, action) {
   if (!m || !Gin.canAct(m, who)) return false;
   switch (action.act) {
     case 'take': return (action.from === 'stock' || action.from === 'pile') && Gin.take(m, action.from);
-    case 'pass': return Gin.pass(m);
     case 'discard': return Gin.isCard(action.card) && Gin.discard(m, action.card);
     default: return false;
   }
 }
 
-$('pass').addEventListener('click', () => act({ act: 'pass' }));
 $('throw').addEventListener('click', () => { if (selected !== null) act({ act: 'discard', card: selected }); });
 
 $('next').addEventListener('click', () => {
@@ -408,7 +417,6 @@ function lastMove() {
       : `They took the ${drew} from the pile and threw the ${card}.`;
   }
   return {
-    pass: 'They passed on the upcard.',
     pile: `They took the ${card} from the pile.`,
     stock: 'They drew from the stock.',
     discard: `They threw the ${card}.`,
@@ -426,7 +434,7 @@ function render() {
   if (!canThrow.includes(selected)) selected = null;
   const canDraw = {
     stock: myTurn && phase === 'draw',
-    pile: myTurn && (phase === 'offer' || (phase === 'draw' && !h.stockOnly)),
+    pile: myTurn && phase === 'draw',
   };
 
   let order = null;
@@ -457,7 +465,6 @@ function render() {
     : after !== null ? `Deadwood after: ${after}` : `Deadwood: ${mine.points}`;
   $('deadwood').dataset.level = ginIfThrown || (selected === null && ginCards.length) ? 'low' : '';
 
-  $('pass').hidden = !(myTurn && phase === 'offer');
   $('throw').hidden = selected === null;
 
   // Status
@@ -467,13 +474,9 @@ function render() {
   if (phase === 'done') {
     status = match.winner !== null ? 'Game over.' : `Hand ${h.number} is over.`;
   } else if (!myTurn) {
-    status = `${theirs} ${phase === 'offer' ? 'Their turn: will they take the upcard?' : 'Their turn…'}`.trim();
-  } else if (phase === 'offer') {
-    status = `${theirs} Take the ${pileTop}, or pass.`.trim();
+    status = `${theirs} Their turn…`.trim();
   } else if (phase === 'draw') {
-    status = h.stockOnly
-      ? `${theirs} Draw from the stock.`.trim()
-      : `${theirs} Draw from the stock, or take the ${pileTop}.`.trim();
+    status = `${theirs} Draw from the stock, or take the ${pileTop}.`.trim();
   } else if (selected !== null) {
     status = ginIfThrown ? 'Throw it and go gin!'
       : after === 0 ? 'No deadwood, but gin has to be a 4-3-3. Tap it again to throw it.'
@@ -496,7 +499,7 @@ function render() {
 }
 
 function renderScores() {
-  const acesNote = { low: '', high: ' · aces high', both: ' · aces high or low' }[aces()];
+  const acesNote = { low: ' · aces low', high: ' · aces high', both: ' · aces high or low' }[aces()];
   $('target-note').textContent = `· first to ${match.target}${acesNote}`;
   for (const [who, key] of [[me, 'me'], [them(), 'them']]) {
     $(`total-${key}`).textContent = match.scores[who];

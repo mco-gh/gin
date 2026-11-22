@@ -38,9 +38,7 @@ export function openBot({ level, on, seat = 1 }) {
 
   function act(action) {
     if (!match || !Gin.canAct(match, me)) return;
-    const ok = action.act === 'take' ? Gin.take(match, action.from)
-      : action.act === 'pass' ? Gin.pass(match)
-      : Gin.discard(match, action.card);
+    const ok = action.act === 'take' ? Gin.take(match, action.from) : Gin.discard(match, action.card);
     if (ok) reply({ t: 'act', ...action });
   }
 
@@ -57,10 +55,9 @@ export function openBot({ level, on, seat = 1 }) {
     timer = setTimeout(() => {
       if (closed || !Gin.canAct(match, me)) return;
       const cards = hand.hands[me];
-      if (hand.phase === 'offer') act(wantsPile(cards, hand.pile.at(-1)) ? { act: 'take', from: 'pile' } : { act: 'pass' });
-      else if (hand.phase === 'draw') {
+      if (hand.phase === 'draw') {
         const top = hand.pile.at(-1);
-        act(!hand.stockOnly && top !== undefined && wantsPile(cards, top) ? { act: 'take', from: 'pile' } : { act: 'take', from: 'stock' });
+        act(top !== undefined && wantsPile(cards, top) ? { act: 'take', from: 'pile' } : { act: 'take', from: 'stock' });
       } else if (hand.phase === 'discard') act({ act: 'discard', card: chooseDiscard(cards) });
       think();
     }, hand.phase === 'discard' ? 700 + Math.random() * 700 : 900 + Math.random() * 900);
@@ -155,7 +152,6 @@ export function openBot({ level, on, seat = 1 }) {
         case 'act': {
           if (!match || !Gin.canAct(match, 1 - me)) return reply({ t: 'resync' });
           const ok = message.act === 'take' ? Gin.take(match, message.from)
-            : message.act === 'pass' ? Gin.pass(match)
             : message.act === 'discard' ? Gin.discard(match, message.card)
             : false;
           if (!ok) return reply({ t: 'resync' });

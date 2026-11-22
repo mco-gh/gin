@@ -164,7 +164,7 @@ export class Table {
     }
 
     // Dealing: start every card on the stock, then send them out one by one.
-    if (dealing && !instant && hand.phase === 'offer' && hand.pile.length === 1) {
+    if (dealing && !instant && hand.phase === 'draw' && hand.pile.length === 1 && hand.stock.length === 31) {
       // The non-dealer (whose turn it is) gets the first card, then they alternate.
       const delays = new Map();
       for (let k = 0; k < 10; k++) {
