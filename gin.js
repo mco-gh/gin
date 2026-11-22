@@ -227,10 +227,10 @@ export function deadwoodWithout(cards, card, aces = 'low') {
 }
 
 /**
- * Gin is ten cards in exactly three melds of four, three and three. Other shapes with
- * no deadwood aren't gin: two runs of five, a set and a run of seven, and so on. So two
- * runs of one suit that join end to end (really one longer run) don't count as two melds.
- * Returns the 4-3-3 arrangement, or null.
+ * Gin is ten cards that can be split into three melds of four, three and three. A long
+ * run may be split to get there (a run of seven is a four and a three; a run of ten is
+ * a four, a three and a three), but shapes that can't be split that way, like two runs
+ * of five, aren't gin. Returns the 4-3-3 arrangement, or null.
  */
 export function ginMelds(cards, aces = 'low') {
   if (cards.length !== 10) return null;
@@ -238,7 +238,7 @@ export function ginMelds(cards, aces = 'low') {
   const walk = (from, used, chosen) => {
     if (chosen.length === 3) {
       const sizes = chosen.map((meld) => meld.length).sort().join('');
-      return sizes === '334' && !chosen.some((a) => chosen.some((b) => joins(a, b, aces))) ? chosen : null;
+      return sizes === '334' ? chosen : null;
     }
     for (let k = from; k < melds.length; k++) {
       if (melds[k].some((card) => used.has(card))) continue;
@@ -249,12 +249,6 @@ export function ginMelds(cards, aces = 'low') {
   };
   const found = walk(0, new Set(), []);
   return found && { melds: sortMelds(found, aces), deadwood: [], points: 0 };
-}
-
-/** Do these two runs of one suit make one longer run, end to end? */
-function joins(a, b, aces) {
-  if (a === b || isSet(a) || isSet(b) || suit(a[0]) !== suit(b[0])) return false;
-  return isRun([...a, ...b], aces);
 }
 
 /** Would throwing this card leave a 4-3-3 gin? */
